@@ -3,51 +3,46 @@
 var modeling = require('flux-modelingjs').modeling();
 
 /**
- * ByOriginDirection.js
- * Code block creating a ray object for use in the RayMeshIntersection block, as well as visualizing the ray as line geometry.
+ * CreateRays.js
+ * Code block creating ray objects for use in the RayMeshIntersection block, as well as visualizing the ray as line geometry.
  * Inputs:
- *   Origin: Origin point of the ray, as an Array of numbers.
- *   Direction: Direction vector of the ray, as an Array of numbers. Does not need to be normalized, as we will do so as a first step.
- *   Bound: The bounds along every axis for the lines generated. Use this to limit the length of the ray lines, particularly when they
- *          extend past the bounds of the parasolid worker. A bound value of 100 will force all lines within a 200x200x200 cube centered
- *          on [0,0,0].
+ *   Origin: Array of ray origin points, each as an Array of numbers.
+ *   Direction: Array of ray destination points, each as an Array of numbers.
  * Outputs:
- *   Line: Line visualizing the ray. Starts from the Origin point and extends along the Direction vector until it hits the bounding box
- *         defined by Bound.
- *   Ray: A JSON object with the ray's components, classification, and other pre-calculated attributes for use in RayMeshIntersection.
+ *   Ray: Array of ray objects, i.e. JSON objects with each ray's components, classification, and other pre-calculated attributes for use in RayMeshIntersection.
  *
  */
 
-function run(origin, direction, bound) {
-	if (direction === [0,0,0]) return null;
-	direction = normalize(direction);
-	
-	var runways = [0,1,2].map( i => runway(origin[i], direction[i], bound) );
-	var minRunway = Math.floor(Math.min(...runways));
-	var endPoint = origin.map( (n,i) => n + minRunway * direction[i] );
-	
-	return { 
-		Line : modeling.entities.line(origin, endPoint),
-		Ray: createRay(origin, direction)
-	};
+function run(origins, destinations) {
+  var rays = [];
+  for (let i=0, len=origins.length; i<len; i++) {
+    rays.push( createRay( origins[i], normalize(vertexSubtract(destinations[i], origins[i])) ));
+  }
+
+  return {
+    Rays: rays
+  }
 }
 
 module.exports = {
     run: run
 };
 
+function vertexSubtract(A,B) {
+  let C = [];
+  for (let i=0; i<A.length; i++) {
+    C[i] = A[i] - B[i];
+  }
+  return C;
+}
+
 function normalize(a) {
+  if (a === [0,0,0]) throw new Error("Cannot normalize vector of length 0");
     var x = a[0],
         y = a[1],
         z = a[2];
     var inverseLen = 1 / Math.sqrt(x*x + y*y + z*z);
     return a.map(n => n*inverseLen);;
-}
-
-function runway(start, velocity, bound) {
-  if (velocity === 0) return Infinity;
-	var space = velocity > 0 ? bound - start : -bound - start;
-	return space / velocity;
 }
 
 function sign(a) {
